@@ -61,8 +61,10 @@ public class MainActivity extends Activity {
 
     private SharedPreferences prefs;
     private ConsumerIrManager irManager;
-    private Remote remote;
-    private Mode mode;
+    private volatile Remote remote;
+    private final java.util.concurrent.atomic.AtomicInteger pending = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile long lastDiagnosis;
+    private volatile Mode mode;
 
     private Spinner modeSpinner;
     private LinearLayout netRow;
@@ -161,7 +163,7 @@ public class MainActivity extends Activity {
         scroll.addView(pad2);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        pad2.addView(row(key(Key.POWER, "⏻", RED), key(Key.INPUT, "Fuente", BTN), key(Key.MUTE, "Silencio", BTN)));
+        pad2.addView(row(key(Key.POWER, "Encender", RED), key(Key.INPUT, "Fuente", BTN), key(Key.MUTE, "Silencio", BTN)));
         pad2.addView(spacer(10));
 
         // Cruceta
@@ -179,9 +181,9 @@ public class MainActivity extends Activity {
         pad2.addView(spacer(10));
 
         // Multimedia
-        LinearLayout media = row(key(Key.REWIND, "⏪", BTN), key(Key.PLAY, "▶", BTN), key(Key.PAUSE, "⏸", BTN));
+        LinearLayout media = row(key(Key.REWIND, "◀◀", BTN), key(Key.PLAY, "▶", BTN), key(Key.PAUSE, "❚❚", BTN));
         pad2.addView(media);
-        pad2.addView(row(key(Key.STOP, "⏹", BTN), blank(), key(Key.FORWARD, "⏩", BTN)));
+        pad2.addView(row(key(Key.STOP, "■", BTN), blank(), key(Key.FORWARD, "▶▶", BTN)));
         pad2.addView(spacer(10));
 
         // Teclado numérico plegable
@@ -303,6 +305,7 @@ public class MainActivity extends Activity {
 
     private void applyMode(Mode m) {
         mode = m;
+        lastDiagnosis = 0;
         prefs.edit().putInt("mode", m.ordinal()).apply();
         Remote old = remote;
         remote = null;
@@ -346,16 +349,32 @@ public class MainActivity extends Activity {
             setStatus(mode.isNetwork() ? "Primero indique la IP del TV." : "No hay emisor infrarrojo en este celular.", true);
             return;
         }
+        // Evita acumular envíos cuando el TV no responde (p. ej. al mantener presionada una flecha).
+        if (r != irRemoteOrNull() && pending.get() >= 2) return;
+        pending.incrementAndGet();
         io.execute(() -> {
             try {
+                if (r != remote) return; // el modo cambió: se descarta el envío pendiente
                 r.send(k);
-                if (r instanceof VidaaRemote || r instanceof RokuRemote) ui.post(() -> setStatus("✓ Conectado", false));
+                if (r instanceof VidaaRemote || r instanceof RokuRemote) ui.post(() -> { if (r == remote) setStatus("✓ Conectado", false); });
             } catch (Exception e) {
+                if (r != remote) return;
                 String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                ui.post(() -> setStatus("✗ " + msg, true));
+                String extra = "";
+                long now = System.currentTimeMillis();
+                if (mode.isNetwork() && now - lastDiagnosis > 8000) {
+                    lastDiagnosis = now;
+                    extra = "\n\nDiagnóstico: " + NetScanner.diagnose(ipField.getText().toString().trim());
+                }
+                String full = "✗ " + msg + extra;
+                ui.post(() -> { if (r == remote) setStatus(full, true); });
+            } finally {
+                pending.decrementAndGet();
             }
         });
     }
+
+    private Remote irRemoteOrNull() { return remote instanceof IrRemote ? remote : null; }
 
     private void setStatus(String s, boolean error) {
         status.setText(s);

@@ -61,6 +61,20 @@ public class NetScanner {
         return sorted;
     }
 
+    /** Revisa qué puertos de TV responden en una IP y explica qué tipo de equipo es. Bloqueante. */
+    public static String diagnose(String ip) {
+        if (ip == null || ip.isEmpty()) return "no hay IP.";
+        boolean vidaa = open(ip, VidaaRemote.PORT), roku = open(ip, 8060);
+        boolean atv = open(ip, 6466) || open(ip, 6467);
+        if (vidaa) return "en " + ip + " hay un TV Hisense VIDAA (puerto 36669 abierto). Use el modo «Wi-Fi · Hisense VIDAA». "
+                + "Si aun así falla, su firmware exige el certificado de la app oficial de Hisense: use infrarrojo o la app oficial VIDAA.";
+        if (roku) return "en " + ip + " hay un Roku TV (puerto 8060). Use el modo «Wi-Fi · Hisense Roku TV».";
+        if (atv) return "en " + ip + " hay un Google/Android TV (puertos 6466/6467). Ese tipo de TV no se controla por los modos Wi-Fi de esta app: "
+                + "use «Infrarrojo · perfil B» o el control de la app oficial Google TV / Google Home.";
+        return "ningún puerto de TV responde en " + ip + ". Puede que esa IP no sea el TV (p. ej. es el router u otro equipo), "
+                + "que el TV esté apagado/en reposo, o que el celular esté en otra red (datos móviles o Wi-Fi de invitados). Use «Buscar».";
+    }
+
     private static int last(String ip) { return Integer.parseInt(ip.substring(ip.lastIndexOf('.') + 1)); }
 
     private static boolean open(String ip, int port) {

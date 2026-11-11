@@ -94,7 +94,14 @@ public class VidaaRemote implements Remote {
                 return "El TV rechazó la autenticación. Este firmware VIDAA exige el certificado de la app oficial: use IR o la app VIDAA.";
             }
         }
-        return "No se pudo conectar al TV VIDAA (puerto 36669). Verifique la IP, que el TV esté encendido y en la misma red Wi-Fi.";
+        Throwable root = e;
+        while (root != null && root.getCause() != null && root.getCause() != root) root = root.getCause();
+        String detail = root == null ? "" : " [" + root.getClass().getSimpleName()
+                + (root.getMessage() != null ? ": " + root.getMessage() : "") + "]";
+        if (root instanceof javax.net.ssl.SSLException) {
+            return "El TV VIDAA rechazó la conexión segura: este firmware exige el certificado de la app oficial de Hisense." + detail;
+        }
+        return "No se pudo conectar al TV VIDAA (puerto 36669)." + detail;
     }
 
     private void publish(String service, String action, String payload) throws MqttException {
