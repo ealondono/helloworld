@@ -30,19 +30,21 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk ControlHisense.apk
+          VERSION=$(grep -oP "versionName '\\K[^']+" app/build.gradle)
+          echo "APK=ControlHisense-v${VERSION}.apk" >> "$GITHUB_ENV"
+          cp app/build/outputs/apk/release/app-release.apk "ControlHisense-v${VERSION}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ControlHisense-apk
-          path: ControlHisense.apk
+          path: ${{ env.APK }}
 
       - name: Publicar descarga (release "latest")
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest ControlHisense.apk \
+          gh release create latest "$APK" \
             --title "Control Hisense (última versión)" \
             --notes "APK generado automáticamente desde ${GITHUB_SHA::7}. Descárguelo desde el celular e instálelo." \
             --target "$GITHUB_SHA" --prerelease

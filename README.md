@@ -5,7 +5,7 @@ todo ocurre entre el celular y el TV.
 
 ## Descargar e instalar
 
-1. Desde el celular abra: <https://github.com/ealondono/helloworld/releases/tag/latest>
+1. Desde el celular abra: <https://github.com/ealondono/helloworld/releases/tag/latest> (archivo `ControlHisense-vX.Y.apk`)
 2. Descargue `ControlHisense.apk` y ábralo.
 3. Android pedirá permitir "Instalar apps desconocidas" para el navegador: acéptelo solo para esta instalación.
 
